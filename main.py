@@ -72,8 +72,8 @@ class User(UserMixin,db.Model):
     posts = relationship("BlogPost", back_populates="author")
     comments = relationship("Comment", back_populates="comment_author")
 
-with app.app_context():
-    db.create_all()
+#with app.app_context():
+#db.create_all()
 
 class Comment(db.Model):
     __tablename__ = "comments"
