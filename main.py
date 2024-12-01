@@ -72,8 +72,6 @@ class User(UserMixin,db.Model):
     posts = relationship("BlogPost", back_populates="author")
     comments = relationship("Comment", back_populates="comment_author")
 
-#with app.app_context():
-#db.create_all()
 
 class Comment(db.Model):
     __tablename__ = "comments"
@@ -85,6 +83,9 @@ class Comment(db.Model):
     post_id: Mapped[str] = mapped_column(Integer, db.ForeignKey("blog_posts.id"))
     parent_post = relationship("BlogPost", back_populates="comments")
     text: Mapped[str] = mapped_column(Text, nullable=False)
+
+with app.app_context():
+    db.create_all()
 
 gravatar = Gravatar(app,
                     size=100,
@@ -178,31 +179,22 @@ def get_all_posts():
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
+    # Add the CommentForm to the route
     comment_form = CommentForm()
-
-    # Handle comment form submission
+    # Only allow logged-in users to comment on posts
     if comment_form.validate_on_submit():
-        if current_user.is_authenticated:
-            new_comment = Comment(
-                author_id=current_user.id,
-                post_id=requested_post.id,
-                text=comment_form.comment_text.data  # Assuming `comment_text` is the field name in your form
-            )
-            db.session.add(new_comment)
-            db.session.commit()
-            flash("Your comment has been added!", "success")
-            return redirect(url_for("show_post", post_id=post_id))
-        else:
-            flash("You need to log in to comment on posts.", "danger")
+        if not current_user.is_authenticated:
+            flash("You need to login or register to comment.")
             return redirect(url_for("login"))
 
-    # Render the post and form
-    return render_template(
-        "post.html",
-        post=requested_post,
-        current_user=current_user,
-        form=comment_form
-    )
+        new_comment = Comment(
+            text=comment_form.comment_text.data,
+            comment_author=current_user,
+            parent_post=requested_post
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+    return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
 
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
